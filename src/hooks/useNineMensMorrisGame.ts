@@ -67,11 +67,13 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
               })
               setIsAnimating(false)
               animationTimeoutRef.current = null
+              aiMoveScheduledRef.current = false
             }, MOVE_ANIMATION_DELAY)
+          } else {
+            aiMoveScheduledRef.current = false
           }
         } catch {
           setIsAnimating(false)
-        } finally {
           aiMoveScheduledRef.current = false
         }
       }, AI_MOVE_DELAY)
@@ -91,7 +93,6 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
     gameState.difficulty,
     gameState.mustRemovePiece,
     isAnimating,
-    gameState,
   ])
 
   /**

@@ -103,7 +103,7 @@ export function Board({
 
           {/* Connections (lines between nodes) */}
           <g className="connections">
-            {CONNECTIONS.map((connection, index) => {
+            {CONNECTIONS.map((connection) => {
               const fromPos = getNodePosition(connection.from)
               const toPos = getNodePosition(connection.to)
 
@@ -111,7 +111,7 @@ export function Board({
 
               return (
                 <Connection
-                  key={index}
+                  key={`${connection.from}-${connection.to}`}
                   from={fromPos}
                   to={toPos}
                   isMillConnection={isMillConnection(connection.from, connection.to)}

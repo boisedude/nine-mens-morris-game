@@ -17,14 +17,52 @@ export interface BentleyStats {
 
 const STORAGE_KEY = 'nine-mens-morris-bentley-stats'
 
+/**
+ * Type guard to validate BentleyStats structure
+ */
+function isValidBentleyStats(data: unknown): data is BentleyStats {
+  if (!data || typeof data !== 'object') {
+    return false
+  }
+
+  const stats = data as Partial<BentleyStats>
+
+  return (
+    typeof stats.gamesPlayed === 'number' &&
+    stats.gamesPlayed >= 0 &&
+    typeof stats.gamesWon === 'number' &&
+    stats.gamesWon >= 0 &&
+    typeof stats.gamesLost === 'number' &&
+    stats.gamesLost >= 0 &&
+    typeof stats.perfectGames === 'number' &&
+    stats.perfectGames >= 0 &&
+    typeof stats.closeCalls === 'number' &&
+    stats.closeCalls >= 0 &&
+    typeof stats.totalMills === 'number' &&
+    stats.totalMills >= 0 &&
+    typeof stats.bestWinMoves === 'number' &&
+    stats.bestWinMoves >= 0
+  )
+}
+
 function loadStats(): BentleyStats {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      return JSON.parse(stored)
+      const data = JSON.parse(stored)
+
+      if (isValidBentleyStats(data)) {
+        return data
+      } else {
+        localStorage.removeItem(STORAGE_KEY)
+      }
     }
   } catch {
-    // Fall through to return default stats
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // Ignore errors when trying to clear
+    }
   }
 
   return {

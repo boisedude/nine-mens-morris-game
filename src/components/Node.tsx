@@ -36,6 +36,13 @@ export function Node({
     }
   }
 
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (!disabled && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault()
+      onClick(id)
+    }
+  }
+
   // Generate accessible label
   const nodeLabel = piece
     ? `${id}: ${piece === 1 ? 'White' : 'Black'} piece${isSelected ? ', selected' : ''}${isRemovable ? ', can be removed' : ''}`
@@ -49,6 +56,7 @@ export function Node({
     <g
       transform={`translate(${position.x}, ${position.y})`}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       style={{ cursor: isClickable ? 'pointer' : 'default' }}
       role="button"
       aria-label={nodeLabel}

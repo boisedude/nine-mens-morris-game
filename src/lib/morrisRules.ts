@@ -240,16 +240,20 @@ export function countPiecesOnBoard(board: Board): { player1: number; player2: nu
   return { player1, player2 }
 }
 
+// Maximum moves before declaring a draw (to prevent infinite games)
+const MAX_MOVES_BEFORE_DRAW = 100
+
 /**
  * Checks if the game is over
  */
 export function checkGameOver(state: GameState): {
   isOver: boolean
   winner: Player | null
+  isDraw: boolean
 } {
   // Game can only be over after placement phase for both players
   if (state.player1PiecesInHand > 0 || state.player2PiecesInHand > 0) {
-    return { isOver: false, winner: null }
+    return { isOver: false, winner: null, isDraw: false }
   }
 
   // Check if current player has less than minimum pieces
@@ -258,16 +262,26 @@ export function checkGameOver(state: GameState): {
     : state.player2PiecesOnBoard
 
   if (currentPieces < MIN_PIECES_TO_LOSE) {
-    return { isOver: true, winner: state.currentPlayer === 1 ? 2 : 1 }
+    return { isOver: true, winner: state.currentPlayer === 1 ? 2 : 1, isDraw: false }
   }
 
   // Check if current player has no valid moves
   const validMoves = getAllValidMoves(state)
   if (validMoves.length === 0 && !state.mustRemovePiece) {
-    return { isOver: true, winner: state.currentPlayer === 1 ? 2 : 1 }
+    return { isOver: true, winner: state.currentPlayer === 1 ? 2 : 1, isDraw: false }
   }
 
-  return { isOver: false, winner: null }
+  // Check for draw by move limit (movement phase only, no progress)
+  if (state.moveHistory.length >= MAX_MOVES_BEFORE_DRAW) {
+    // Check if recent moves don't include any piece removals (no progress)
+    const recentMoves = state.moveHistory.slice(-20)
+    const hasProgress = recentMoves.some(move => move.removedPiece !== undefined)
+    if (!hasProgress) {
+      return { isOver: true, winner: null, isDraw: true }
+    }
+  }
+
+  return { isOver: false, winner: null, isDraw: false }
 }
 
 /**
@@ -338,7 +352,7 @@ export function makeMove(
     if (gameOver.isOver) {
       return {
         ...newState,
-        status: 'won',
+        status: gameOver.isDraw ? 'draw' : 'won',
         winner: gameOver.winner,
         validMoves: [],
       }
@@ -428,7 +442,7 @@ export function makeMove(
   if (gameOver.isOver) {
     return {
       ...newState,
-      status: 'won',
+      status: gameOver.isDraw ? 'draw' : 'won',
       winner: gameOver.winner,
       validMoves: [],
     }

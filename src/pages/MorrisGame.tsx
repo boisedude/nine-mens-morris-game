@@ -207,22 +207,6 @@ export function MorrisGame() {
         </div>
       </div>
 
-      {/* Piece Banks */}
-      <div className="mb-3 sm:mb-4 flex gap-4 sm:gap-8 w-full max-w-md justify-center" role="region" aria-label="Pieces in hand">
-        <PieceBank
-          player={1}
-          piecesInHand={gameState.player1PiecesInHand}
-          label="You"
-          isCurrentPlayer={gameState.currentPlayer === 1 && !gameState.mustRemovePiece && gameState.phase === 'placement'}
-        />
-        <PieceBank
-          player={2}
-          piecesInHand={gameState.player2PiecesInHand}
-          label={character.name}
-          isCurrentPlayer={gameState.currentPlayer === 2 && !gameState.mustRemovePiece && gameState.phase === 'placement'}
-        />
-      </div>
-
       {/* Phase Indicator */}
       <div className="mb-3 sm:mb-4 w-full max-w-md">
         <PhaseIndicator
@@ -244,6 +228,22 @@ export function MorrisGame() {
         lastFormedMill={gameState.lastFormedMill}
         disabled={isAnimating || gameState.status !== 'playing'}
       />
+
+      {/* Piece Banks - Pieces waiting to be placed */}
+      <div className="mt-3 sm:mt-4 flex gap-4 sm:gap-8 w-full max-w-md justify-center" role="region" aria-label="Pieces in hand">
+        <PieceBank
+          player={1}
+          piecesInHand={gameState.player1PiecesInHand}
+          label="You"
+          isCurrentPlayer={gameState.currentPlayer === 1 && !gameState.mustRemovePiece && gameState.phase === 'placement'}
+        />
+        <PieceBank
+          player={2}
+          piecesInHand={gameState.player2PiecesInHand}
+          label={character.name}
+          isCurrentPlayer={gameState.currentPlayer === 2 && !gameState.mustRemovePiece && gameState.phase === 'placement'}
+        />
+      </div>
 
       {/* Piece Counts on Board */}
       <div className="mt-3 sm:mt-4 flex gap-4 sm:gap-8 rounded-lg bg-white p-3 shadow-lg w-full max-w-md" role="region" aria-label="Piece count on board">

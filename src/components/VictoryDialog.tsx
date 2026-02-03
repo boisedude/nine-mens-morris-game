@@ -3,7 +3,7 @@
  * Shows game result with Morris-themed personality messages
  */
 
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
 } from './ui/dialog'
 import { Button } from './ui/button'
 import type { Player } from '@/types/morris.types'
-import type { Character } from '../../../shared/characters'
+import type { Character } from '@shared/characters'
 
 interface VictoryDialogProps {
   open: boolean
@@ -24,6 +24,14 @@ interface VictoryDialogProps {
   onPlayAgain: () => void
   onClose: () => void
   character: Character
+}
+
+/**
+ * Selects a random item from an array
+ * Used inside useMemo to ensure consistent selection per render cycle
+ */
+function selectRandomItem<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)]
 }
 
 export function VictoryDialog({
@@ -36,33 +44,24 @@ export function VictoryDialog({
   character,
 }: VictoryDialogProps) {
   const isDraw = winner === null
-  const [victoryMessage, setVictoryMessage] = useState('')
 
-  // Select random message when dialog opens (in effect to comply with React 19 purity rules)
-  // Math.random() must be called in effect, not during render, to maintain purity
-  // setState in effect is intentional here - we're responding to dialog opening
-  useEffect(() => {
-    if (open) {
-      if (isDraw) {
-        const drawMessages = [
-          `It's a draw! Both you and ${character.name} played well!`,
-          `A stalemate! ${character.name} is impressed with your strategy!`,
-          'Neither side could find a winning move. Rematch?',
-          `Tied game! ${character.name} wants another round!`,
-        ]
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setVictoryMessage(drawMessages[Math.floor(Math.random() * drawMessages.length)])
-      } else if (winner === 1) {
-        const messages = character.catchphrases.playerWins
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setVictoryMessage(messages[Math.floor(Math.random() * messages.length)])
-      } else {
-        const messages = character.catchphrases.characterWins
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setVictoryMessage(messages[Math.floor(Math.random() * messages.length)])
-      }
+  // Memoize the victory message to avoid re-randomizing on each render
+  // The message should only change when the dialog opens with new game results
+  const victoryMessage = useMemo(() => {
+    if (isDraw) {
+      const drawMessages = [
+        `It's a draw! Both you and ${character.name} played well!`,
+        `A stalemate! ${character.name} is impressed with your strategy!`,
+        'Neither side could find a winning move. Rematch?',
+        `Tied game! ${character.name} wants another round!`,
+      ]
+      return selectRandomItem(drawMessages)
+    } else if (winner === 1) {
+      return selectRandomItem(character.catchphrases.playerWins)
+    } else {
+      return selectRandomItem(character.catchphrases.characterWins)
     }
-  }, [open, isDraw, winner, character])
+  }, [isDraw, winner, character.name, character.catchphrases.playerWins, character.catchphrases.characterWins])
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -114,17 +113,17 @@ export function VictoryDialog({
             {winner === 1 ? (
               <>
                 <div className="h-20 w-20 rounded-full bg-gradient-to-br from-gray-100 to-white border-4 border-yellow-400 shadow-2xl animate-pulse" />
-                <div className="text-5xl">&#127942;</div>
+                <div className="text-5xl" role="img" aria-label="Trophy">&#127942;</div>
               </>
             ) : winner === 2 ? (
               <>
-                <div className="text-5xl opacity-50">&#128546;</div>
+                <div className="text-5xl opacity-50" role="img" aria-label="Crying face">&#128546;</div>
                 <div className="h-20 w-20 rounded-full bg-gradient-to-br from-gray-800 to-black border-4 border-yellow-400 shadow-2xl animate-pulse" />
               </>
             ) : (
               <>
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-gray-100 to-white border-2 border-gray-300 shadow-lg" />
-                <div className="text-4xl">&#129309;</div>
+                <div className="text-4xl" role="img" aria-label="Handshake">&#129309;</div>
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-gray-800 to-black border-2 border-gray-600 shadow-lg" />
               </>
             )}

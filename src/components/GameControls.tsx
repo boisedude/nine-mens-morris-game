@@ -1,12 +1,12 @@
 /**
  * Game Controls Component
- * Controls for difficulty selection, new game, leaderboard, etc.
+ * Controls for difficulty selection, new game, leaderboard, undo, etc.
  */
 
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import type { Difficulty } from '@/types/morris.types'
-import type { Character } from '../../../shared/characters'
+import type { Character } from '@shared/characters'
 
 interface GameControlsProps {
   difficulty: Difficulty
@@ -14,6 +14,8 @@ interface GameControlsProps {
   onNewGame: () => void
   onShowLeaderboard: () => void
   onShowHelp?: () => void
+  onUndo?: () => void
+  canUndo?: boolean
   disabled?: boolean
   character: Character
 }
@@ -24,6 +26,8 @@ export function GameControls({
   onNewGame,
   onShowLeaderboard,
   onShowHelp,
+  onUndo,
+  canUndo = false,
   disabled = false,
   character,
 }: GameControlsProps) {
@@ -50,21 +54,34 @@ export function GameControls({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-2 w-full justify-center">
+      <div className="flex gap-2 w-full justify-center flex-wrap">
         <Button
           onClick={onNewGame}
           disabled={disabled}
           variant="default"
-          className="flex-1 sm:flex-none h-10 text-sm sm:text-base"
+          className="flex-1 sm:flex-none h-10 text-sm sm:text-base min-w-[80px]"
         >
           New Game
         </Button>
+
+        {onUndo && (
+          <Button
+            onClick={onUndo}
+            disabled={disabled || !canUndo}
+            variant="outline"
+            className="flex-1 sm:flex-none h-10 text-sm sm:text-base min-w-[80px]"
+            aria-label="Undo last move (U)"
+            title="Undo (U)"
+          >
+            Undo
+          </Button>
+        )}
 
         <Button
           onClick={onShowLeaderboard}
           disabled={disabled}
           variant="outline"
-          className="flex-1 sm:flex-none h-10 text-sm sm:text-base"
+          className="flex-1 sm:flex-none h-10 text-sm sm:text-base min-w-[80px]"
         >
           Stats
         </Button>
@@ -74,7 +91,7 @@ export function GameControls({
             onClick={onShowHelp}
             disabled={disabled}
             variant="outline"
-            className="flex-1 sm:flex-none h-10 text-sm sm:text-base"
+            className="flex-1 sm:flex-none h-10 text-sm sm:text-base min-w-[80px]"
           >
             Help
           </Button>

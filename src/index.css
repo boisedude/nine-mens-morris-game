@@ -1,6 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Premium board game animations */
+  --animate-piece-drop: piece-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-mill-glow: mill-glow 0.8s ease-in-out 3;
+  --animate-mill-celebration: mill-celebration 0.6s ease-out;
+}
 
 @layer base {
   :root {
@@ -53,75 +82,134 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 
-/* Piece place animation */
-@keyframes piece-place {
+/* ========================================
+   PREMIUM BOARD GAME ANIMATIONS
+   ======================================== */
+
+/* Piece drop animation - simulates dropping onto the board */
+@keyframes piece-drop {
   0% {
-    transform: scale(0.5);
-    opacity: 0.5;
+    transform: scale(0.3) translateY(-30px);
+    opacity: 0;
+    filter: blur(2px);
   }
   50% {
-    transform: scale(1.1);
+    transform: scale(1.15) translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+  70% {
+    transform: scale(0.95) translateY(2px);
+  }
+  85% {
+    transform: scale(1.03) translateY(-1px);
   }
   100% {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
 }
 
-/* Piece remove animation */
-@keyframes piece-remove {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0);
-    opacity: 0;
-  }
-}
-
-/* Valid move pulse animation */
+/* Valid move pulse - subtle glow effect */
 @keyframes valid-move-pulse {
-  0%,
-  100% {
+  0%, 100% {
     transform: scale(1);
     opacity: 0.6;
   }
   50% {
-    transform: scale(1.2);
-    opacity: 0.8;
+    transform: scale(1.15);
+    opacity: 0.9;
   }
 }
 
-/* Mill formed flash animation */
-@keyframes mill-flash {
-  0%,
-  100% {
-    stroke: currentColor;
-    stroke-width: 3;
+/* Mill glow animation - celebratory highlight */
+@keyframes mill-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 0px #fbbf24);
   }
   50% {
+    filter: drop-shadow(0 0 12px #fbbf24) drop-shadow(0 0 20px #f59e0b);
+  }
+}
+
+/* Mill celebration - pieces in a mill bounce */
+@keyframes mill-celebration {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.15);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  75% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Mill line flash - enhanced */
+@keyframes mill-flash {
+  0%, 100% {
+    stroke: #8b4513;
+    stroke-width: 4;
+    filter: drop-shadow(0 0 0px transparent);
+  }
+  25%, 75% {
     stroke: #fbbf24;
     stroke-width: 6;
+    filter: drop-shadow(0 0 8px #fbbf24);
+  }
+  50% {
+    stroke: #f59e0b;
+    stroke-width: 7;
+    filter: drop-shadow(0 0 12px #f59e0b);
+  }
+}
+
+/* Shimmer effect for premium feel (used inline in Connection.tsx) */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Subtle float for selected pieces */
+@keyframes float-selected {
+  0%, 100% {
+    transform: translateY(0) scale(1.1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.12);
+  }
+}
+
+/* Ring pulse for removable pieces */
+@keyframes ring-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
   }
 }
 
 @layer utilities {
-  .animate-piece-place {
-    animation: piece-place 0.3s ease-out;
-  }
-
-  .animate-piece-remove {
-    animation: piece-remove 0.3s ease-out;
-  }
-
+  /* Animation classes used in components */
   .animate-valid-move-pulse {
     animation: valid-move-pulse 2s ease-in-out infinite;
   }
@@ -130,21 +218,66 @@
     animation: mill-flash 0.5s ease-in-out 3;
   }
 
-  /* Custom scrollbar */
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  .animate-piece-drop {
+    animation: piece-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  .scrollbar-thumb-rounded::-webkit-scrollbar-thumb {
-    border-radius: 9999px;
+  .animate-mill-glow {
+    animation: mill-glow 0.8s ease-in-out 3;
   }
 
-  .scrollbar-thumb-muted-foreground\/20::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.2);
+  .animate-mill-celebration {
+    animation: mill-celebration 0.6s ease-out;
   }
 
-  .scrollbar-track-transparent::-webkit-scrollbar-track {
-    background-color: transparent;
+  .animate-float-selected {
+    animation: float-selected 1.5s ease-in-out infinite;
+  }
+
+  .animate-ring-pulse {
+    animation: ring-pulse 1.2s ease-in-out infinite;
+  }
+
+  /* Premium board shadow */
+  .board-premium-shadow {
+    box-shadow:
+      0 10px 30px rgba(0, 0, 0, 0.3),
+      0 5px 15px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Reduced motion support - disable infinite animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-piece-drop {
+    animation: none;
+  }
+
+  .animate-valid-move-pulse {
+    animation: none;
+    /* Keep visual indicator but without animation */
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+
+  .animate-mill-flash,
+  .animate-mill-glow,
+  .animate-mill-celebration {
+    animation: none;
+  }
+
+  .animate-pulse,
+  .animate-float-selected,
+  .animate-ring-pulse {
+    animation: none;
+  }
+
+  /* Disable all transitions and animations globally */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

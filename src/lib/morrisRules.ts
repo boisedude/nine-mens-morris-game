@@ -309,6 +309,7 @@ export function createInitialGameState(
     player2PiecesOnBoard: 0,
     validMoves,
     mustRemovePiece: false,
+    undoHistory: [],
   }
 }
 

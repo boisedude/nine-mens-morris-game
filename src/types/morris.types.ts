@@ -64,6 +64,24 @@ export interface ValidMove {
   score?: number // For AI evaluation
 }
 
+// Snapshot of game state for undo functionality
+export interface GameStateSnapshot {
+  board: Board
+  currentPlayer: Player
+  phase: GamePhase
+  status: GameStatus
+  winner: Player | null
+  moveHistory: Move[]
+  lastMove?: Move
+  player1PiecesInHand: number
+  player2PiecesInHand: number
+  player1PiecesOnBoard: number
+  player2PiecesOnBoard: number
+  validMoves: ValidMove[]
+  mustRemovePiece: boolean
+  lastFormedMill?: MillPattern
+}
+
 // Complete game state
 export interface GameState {
   board: Board
@@ -91,6 +109,9 @@ export interface GameState {
 
   // UI state
   selectedNode?: NodeId
+
+  // Undo history - stores snapshots of game state before player moves
+  undoHistory: GameStateSnapshot[]
 }
 
 // Leaderboard entry

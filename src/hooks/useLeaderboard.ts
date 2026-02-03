@@ -5,8 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { LeaderboardEntry } from '@/types/morris.types'
+import { STORAGE_KEYS } from '@/lib/storageKeys'
 
-const STORAGE_KEY = 'nine-mens-morris-leaderboard'
 const DEFAULT_PLAYER_NAME = 'Player'
 
 /**
@@ -46,19 +46,19 @@ function isValidLeaderboard(data: unknown): data is LeaderboardEntry {
 
 function getInitialLeaderboard(): LeaderboardEntry {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(STORAGE_KEYS.LEADERBOARD)
     if (stored) {
       const data = JSON.parse(stored)
 
       if (isValidLeaderboard(data)) {
         return data
       } else {
-        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(STORAGE_KEYS.LEADERBOARD)
       }
     }
   } catch {
     try {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEYS.LEADERBOARD)
     } catch {
       // Ignore errors when trying to clear
     }
@@ -84,7 +84,7 @@ export function useLeaderboard() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stats))
+      localStorage.setItem(STORAGE_KEYS.LEADERBOARD, JSON.stringify(stats))
     } catch {
       // Failed to save - stats will be lost but game continues
     }

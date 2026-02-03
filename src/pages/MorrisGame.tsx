@@ -17,11 +17,14 @@ import { useGameAudio } from '@/hooks/useGameAudio'
 import { useCharacterSelection } from '@/hooks/useCharacterSelection'
 import { useBentleyStats } from '@/hooks/useBentleyStats'
 import { countMills } from '@/lib/morrisRules'
+import { TIMING } from '@/lib/constants'
+import type { GameStatus } from '@/types/morris.types'
 
 export function MorrisGame() {
   const {
     gameState,
     isAnimating,
+    isAIThinking,
     handleNodeClick,
     startNewGame,
     changeDifficulty,
@@ -29,6 +32,8 @@ export function MorrisGame() {
     isNodeSelected,
     isRemovable,
     isInLastMill,
+    canUndo,
+    undoMove,
   } = useNineMensMorrisGame()
 
   const { character, changeCharacter } = useCharacterSelection(gameState.difficulty)
@@ -42,8 +47,10 @@ export function MorrisGame() {
 
   const [showVictoryDialog, setShowVictoryDialog] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
-  const [prevStatus, setPrevStatus] = useState(gameState.status)
-  const [prevMustRemove, setPrevMustRemove] = useState(gameState.mustRemovePiece)
+
+  // Use refs for tracking previous state to avoid cascading renders
+  const prevStatusRef = useRef<GameStatus>(gameState.status)
+  const prevMustRemoveRef = useRef(gameState.mustRemovePiece)
   const prevMoveCountRef = useRef(gameState.moveHistory.length)
 
   // Sound effects for moves
@@ -58,7 +65,7 @@ export function MorrisGame() {
           playMove()
         }
         if (lastMove.formedMill) {
-          setTimeout(() => playMill(), 200)
+          setTimeout(() => playMill(), TIMING.MILL_SOUND_DELAY)
         }
       }
     }
@@ -66,18 +73,16 @@ export function MorrisGame() {
   }, [gameState.moveHistory, playPlace, playMove, playMill])
 
   // Sound effect for piece removal
-  // setState in effect is intentional - tracking previous state for comparison
   useEffect(() => {
-    if (prevMustRemove && !gameState.mustRemovePiece) {
+    if (prevMustRemoveRef.current && !gameState.mustRemovePiece) {
       playRemove()
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPrevMustRemove(gameState.mustRemovePiece)
-  }, [gameState.mustRemovePiece, prevMustRemove, playRemove])
+    prevMustRemoveRef.current = gameState.mustRemovePiece
+  }, [gameState.mustRemovePiece, playRemove])
 
   // Detect game end
   useEffect(() => {
-    if (prevStatus === 'playing' && gameState.status !== 'playing') {
+    if (prevStatusRef.current === 'playing' && gameState.status !== 'playing') {
       // Calculate stats
       const playerMills = countMills(gameState.board, 1)
       const piecesRemoved = gameState.moveHistory.filter(
@@ -114,12 +119,11 @@ export function MorrisGame() {
         }
       }
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setShowVictoryDialog(true)
+      // Use setTimeout to avoid cascading renders from direct setState in effect
+      setTimeout(() => setShowVictoryDialog(true), 0)
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPrevStatus(gameState.status)
+    prevStatusRef.current = gameState.status
   }, [
     gameState.status,
     gameState.winner,
@@ -128,7 +132,6 @@ export function MorrisGame() {
     gameState.player2PiecesOnBoard,
     gameState.moveHistory,
     gameState.board,
-    prevStatus,
     playVictory,
     playDefeat,
     playDraw,
@@ -153,11 +156,33 @@ export function MorrisGame() {
     [changeDifficulty, changeCharacter]
   )
 
+  // Keyboard shortcut for Undo (U key)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't interfere with typing in inputs
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      ) {
+        return
+      }
+
+      // Handle 'U' key for undo
+      if ((event.key === 'u' || event.key === 'U') && canUndo()) {
+        event.preventDefault()
+        undoMove()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [canUndo, undoMove])
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-amber-50 to-orange-100 p-2 sm:p-4 sm:justify-center">
       {/* Return to Arcade Button */}
       <div className="w-full max-w-lg mb-3 sm:mb-4">
-        <a href="/arcade" className="block">
+        <a href="https://www.mcooper.com/arcade/" className="block">
           <Button
             variant="outline"
             className="w-full sm:w-auto h-10 sm:h-11 text-sm sm:text-base font-semibold border-2 hover:bg-amber-100 hover:border-amber-400"
@@ -240,6 +265,9 @@ export function MorrisGame() {
           onDifficultyChange={handleDifficultyChange}
           onNewGame={handleNewGame}
           onShowLeaderboard={() => setShowLeaderboard(true)}
+          onUndo={undoMove}
+          canUndo={canUndo()}
+          disabled={isAnimating || isAIThinking}
           character={character}
         />
       </div>

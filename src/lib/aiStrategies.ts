@@ -3,7 +3,7 @@
  * Implements minimax with alpha-beta pruning for different difficulty levels
  */
 
-import type { Board, Player, ValidMove, Difficulty, GameState } from '@/types/morris.types'
+import type { Board, Player, ValidMove, GameState, Difficulty } from '@/types/morris.types'
 import {
   getAllValidMoves,
   makeMove,
@@ -161,8 +161,7 @@ function minimax(
   alpha: number,
   beta: number,
   maximizingPlayer: boolean,
-  player: Player,
-  _difficulty: Difficulty
+  player: Player
 ): { score: number; move: ValidMove | null } {
   const gameOver = checkGameOver(state)
 
@@ -191,8 +190,7 @@ function minimax(
         alpha,
         beta,
         isStillMaximizing,
-        player,
-        _difficulty
+        player
       )
 
       if (score > maxScore) {
@@ -218,8 +216,7 @@ function minimax(
         alpha,
         beta,
         isMaximizing,
-        player,
-        _difficulty
+        player
       )
 
       if (score < minScore) {
@@ -347,7 +344,7 @@ export function getAIMove(state: GameState, player: Player, difficulty: Difficul
 
   // Use minimax for medium and hard
   const depth = AI_DEPTH[difficulty]
-  const { move } = minimax(state, depth, -Infinity, Infinity, true, player, difficulty)
+  const { move } = minimax(state, depth, -Infinity, Infinity, true, player)
 
   return move || validMoves[Math.floor(Math.random() * validMoves.length)]
 }

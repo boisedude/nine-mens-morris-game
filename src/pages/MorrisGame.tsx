@@ -5,20 +5,25 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Board } from '@/components/Board'
-import { PieceBank } from '@/components/PieceBank'
-import { PhaseIndicator } from '@/components/PhaseIndicator'
 import { GameControls } from '@/components/GameControls'
 import { VictoryDialog } from '@/components/VictoryDialog'
 import { LeaderboardDialog } from '@/components/LeaderboardDialog'
+import { Tutorial } from '@/components/Tutorial'
+import { OpponentChip } from '@/components/OpponentChip'
 import { Button } from '@/components/ui/button'
 import { useNineMensMorrisGame } from '@/hooks/useNineMensMorrisGame'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useGameAudio } from '@/hooks/useGameAudio'
-import { useCharacterSelection } from '@/hooks/useCharacterSelection'
+import { useCharacterSelection, getDifficultyFromUrl } from '@/hooks/useCharacterSelection'
 import { useBentleyStats } from '@/hooks/useBentleyStats'
+import { recordPlayerBeatBentley, recordBentleyBeatPlayer } from '@shared/arcadeRecord'
+import { ArrowLeftIcon, VolumeIcon, VolumeOffIcon, HelpIcon } from '@shared/icons'
 import { countMills } from '@/lib/morrisRules'
 import { TIMING } from '@/lib/constants'
 import type { GameStatus } from '@/types/morris.types'
+
+// Resolved once: ?character= is the single source of truth for the starting opponent
+const initialDifficulty = getDifficultyFromUrl('medium')
 
 export function MorrisGame() {
   const {
@@ -34,23 +39,26 @@ export function MorrisGame() {
     isInLastMill,
     canUndo,
     undoMove,
-  } = useNineMensMorrisGame()
+  } = useNineMensMorrisGame(initialDifficulty)
 
-  const { character, changeCharacter } = useCharacterSelection(gameState.difficulty)
+  const { character, changeCharacter } = useCharacterSelection(initialDifficulty)
   const {
     recordBentleyWin,
     recordBentleyLoss,
     recordBentleyDraw,
   } = useBentleyStats()
   const { stats, recordWin, recordLoss, recordDraw, updatePlayerName, resetStats } = useLeaderboard()
-  const { playPlace, playMove, playMill, playRemove, playVictory, playDefeat, playDraw } = useGameAudio()
+  const { playPlace, playMove, playMill, playRemove, playVictory, playDefeat, playDraw, isMuted, toggleMute } =
+    useGameAudio()
 
   const [showVictoryDialog, setShowVictoryDialog] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(false)
 
   // Use refs for tracking previous state to avoid cascading renders
   const prevStatusRef = useRef<GameStatus>(gameState.status)
   const prevMustRemoveRef = useRef(gameState.mustRemovePiece)
+  const arcadeRecordedRef = useRef(false)
   const prevMoveCountRef = useRef(gameState.moveHistory.length)
 
   // Sound effects for moves
@@ -99,6 +107,10 @@ export function MorrisGame() {
 
           if (gameState.difficulty === 'hard') {
             recordBentleyWin(playerMills, isPerfect, moveCount)
+            if (!arcadeRecordedRef.current) {
+              arcadeRecordedRef.current = true
+              void recordPlayerBeatBentley()
+            }
           }
         } else if (gameState.winner === 2) {
           // AI wins
@@ -108,6 +120,10 @@ export function MorrisGame() {
           if (gameState.difficulty === 'hard') {
             const wasClose = gameState.player1PiecesOnBoard >= 3
             recordBentleyLoss(playerMills, wasClose)
+            if (!arcadeRecordedRef.current) {
+              arcadeRecordedRef.current = true
+              void recordBentleyBeatPlayer()
+            }
           }
         }
       } else if (gameState.status === 'draw') {
@@ -145,6 +161,7 @@ export function MorrisGame() {
 
   const handleNewGame = useCallback(() => {
     setShowVictoryDialog(false)
+    arcadeRecordedRef.current = false
     startNewGame()
   }, [startNewGame])
 
@@ -178,114 +195,124 @@ export function MorrisGame() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [canUndo, undoMove])
 
+  const opponent = character.name
+  const inPlacement = gameState.phase === 'placement'
+  const turnText =
+    gameState.status === 'won'
+      ? gameState.winner === 1
+        ? 'You won'
+        : `${opponent} won`
+      : gameState.status === 'draw'
+        ? 'Draw'
+        : gameState.currentPlayer === 2
+          ? `${opponent} is thinking`
+          : gameState.mustRemovePiece
+            ? 'Mill! Remove a piece'
+            : inPlacement
+              ? 'Your turn: place a piece'
+              : 'Your turn: move a piece'
+  const turnActive =
+    gameState.status !== 'playing' ? 'over' : gameState.currentPlayer === 1 ? 'you' : 'opponent'
+  const showHand = gameState.status === 'playing' && inPlacement
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-start bg-gradient-to-br from-amber-50 to-orange-100 p-2 sm:p-4 sm:justify-center">
-      {/* Return to Arcade Button */}
-      <div className="w-full max-w-lg mb-3 sm:mb-4">
-        <a href="https://www.mcooper.com/arcade/" className="block">
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto h-10 sm:h-11 text-sm sm:text-base font-semibold border-2 hover:bg-amber-100 hover:border-amber-400"
+    <div className="arcade-page">
+      <a
+        href="#game-board"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:text-foreground"
+      >
+        Skip to game board
+      </a>
+
+      <header className="arcade-topbar">
+        <div className="flex flex-1 items-center">
+          <a
+            href="https://www.mcooper.com/arcade/"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
-            &#8592; Return to Arcade
+            <ArrowLeftIcon size={18} />
+            Arcade
+          </a>
+        </div>
+        <h1 className="arcade-display sr-only text-xl sm:not-sr-only">Nine Men's Morris</h1>
+        <div className="flex flex-1 items-center justify-end gap-1">
+          <OpponentChip
+            character={character}
+            difficulty={gameState.difficulty}
+            onDifficultyChange={handleDifficultyChange}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0"
+            onClick={toggleMute}
+            aria-label={isMuted ? 'Unmute sound effects' : 'Mute sound effects'}
+          >
+            {isMuted ? <VolumeOffIcon /> : <VolumeIcon />}
           </Button>
-        </a>
-      </div>
-
-      {/* Character Info */}
-      <div className="mb-3 sm:mb-4 flex items-center gap-3 sm:gap-4 rounded-lg bg-white p-3 sm:p-4 shadow-lg w-full max-w-md" role="region" aria-label="Current opponent">
-        <img
-          src={character.avatar}
-          alt={`${character.name} avatar`}
-          className="h-12 w-12 sm:h-16 sm:w-16 rounded-full border-2 border-amber-500"
-        />
-        <div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-            {character.name} {character.emoji}
-          </h3>
-          <p className="text-xs sm:text-sm text-gray-600">{character.playingStyle}</p>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0"
+            onClick={() => setShowTutorial(true)}
+            aria-label="How to play"
+          >
+            <HelpIcon />
+          </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Phase Indicator */}
-      <div className="mb-3 sm:mb-4 w-full max-w-md">
-        <PhaseIndicator
-          phase={gameState.phase}
-          currentPlayer={gameState.currentPlayer}
-          mustRemovePiece={gameState.mustRemovePiece}
-          characterName={character.name}
-        />
-      </div>
-
-      {/* Board */}
-      <Board
-        board={gameState.board}
-        onNodeClick={handleNodeClick}
-        isHighlighted={isHighlighted}
-        isNodeSelected={isNodeSelected}
-        isRemovable={isRemovable}
-        isInLastMill={isInLastMill}
-        lastFormedMill={gameState.lastFormedMill}
-        disabled={isAnimating || gameState.status !== 'playing'}
-      />
-
-      {/* Piece Banks - Pieces waiting to be placed */}
-      <div className="mt-3 sm:mt-4 flex gap-4 sm:gap-8 w-full max-w-md justify-center" role="region" aria-label="Pieces in hand">
-        <PieceBank
-          player={1}
-          piecesInHand={gameState.player1PiecesInHand}
-          label="You"
-          isCurrentPlayer={gameState.currentPlayer === 1 && !gameState.mustRemovePiece && gameState.phase === 'placement'}
-        />
-        <PieceBank
-          player={2}
-          piecesInHand={gameState.player2PiecesInHand}
-          label={character.name}
-          isCurrentPlayer={gameState.currentPlayer === 2 && !gameState.mustRemovePiece && gameState.phase === 'placement'}
-        />
-      </div>
-
-      {/* Piece Counts on Board */}
-      <div className="mt-3 sm:mt-4 flex gap-4 sm:gap-8 rounded-lg bg-white p-3 shadow-lg w-full max-w-md" role="region" aria-label="Piece count on board">
-        <div className="text-center flex-1">
-          <div className="text-xl sm:text-2xl font-bold text-gray-800">{gameState.player1PiecesOnBoard}</div>
-          <div className="text-xs sm:text-sm text-gray-600">Your Pieces on Board</div>
+      <main className="arcade-stage">
+        <div className="arcade-score" aria-live="polite">
+          <div>
+            <strong>{gameState.player1PiecesOnBoard}</strong>
+            You
+            {showHand && <span className="block text-xs">{gameState.player1PiecesInHand} in hand</span>}
+          </div>
+          <div className="arcade-turn" data-active={turnActive}>
+            {turnText}
+          </div>
+          <div>
+            <strong>{gameState.player2PiecesOnBoard}</strong>
+            {opponent}
+            {showHand && <span className="block text-xs">{gameState.player2PiecesInHand} in hand</span>}
+          </div>
         </div>
-        <div className="border-l border-gray-300" />
-        <div className="text-center flex-1">
-          <div className="text-xl sm:text-2xl font-bold text-gray-800">{gameState.player2PiecesOnBoard}</div>
-          <div className="text-xs sm:text-sm text-gray-600">{character.name}'s Pieces</div>
-        </div>
-      </div>
 
-      {/* Game Controls */}
-      <div className="mt-4 sm:mt-6 mb-4 w-full max-w-md px-2">
+        <div id="game-board" className="flex w-full justify-center">
+          <Board
+            board={gameState.board}
+            onNodeClick={handleNodeClick}
+            isHighlighted={isHighlighted}
+            isNodeSelected={isNodeSelected}
+            isRemovable={isRemovable}
+            isInLastMill={isInLastMill}
+            lastFormedMill={gameState.lastFormedMill}
+            disabled={isAnimating || gameState.status !== 'playing'}
+          />
+        </div>
+
         <GameControls
-          difficulty={gameState.difficulty}
-          onDifficultyChange={handleDifficultyChange}
           onNewGame={handleNewGame}
           onShowLeaderboard={() => setShowLeaderboard(true)}
+          onShowTutorial={() => setShowTutorial(true)}
           onUndo={undoMove}
           canUndo={canUndo()}
           disabled={isAnimating || isAIThinking}
-          character={character}
         />
-      </div>
+      </main>
 
-      {/* Victory Dialog */}
       {showVictoryDialog && (
         <VictoryDialog
           open={showVictoryDialog}
           winner={gameState.winner}
           character={character}
+          stats={stats}
           onPlayAgain={handleNewGame}
           onClose={() => setShowVictoryDialog(false)}
-          player1Pieces={gameState.player1PiecesOnBoard}
-          player2Pieces={gameState.player2PiecesOnBoard}
         />
       )}
 
-      {/* Leaderboard Dialog */}
       {showLeaderboard && (
         <LeaderboardDialog
           open={showLeaderboard}
@@ -294,6 +321,10 @@ export function MorrisGame() {
           onUpdatePlayerName={updatePlayerName}
           onResetStats={resetStats}
         />
+      )}
+
+      {showTutorial && (
+        <Tutorial open={showTutorial} opponentName={opponent} onClose={() => setShowTutorial(false)} />
       )}
     </div>
   )

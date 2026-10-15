@@ -27,13 +27,24 @@ const characterToDifficulty: Record<CharacterId, Difficulty> = {
 const validCharacters: CharacterId[] = ['bella', 'coop', 'bentley']
 
 // Read character from URL parameter
-function getCharacterFromUrl(): CharacterId | null {
+export function getCharacterFromUrl(): CharacterId | null {
   const params = new URLSearchParams(window.location.search)
   const urlCharacter = params.get('character')
   if (urlCharacter && validCharacters.includes(urlCharacter as CharacterId)) {
     return urlCharacter as CharacterId
   }
   return null
+}
+
+/** Difficulty implied by ?character=, or the fallback when absent/invalid. */
+export function getDifficultyFromUrl(fallback: Difficulty = 'medium'): Difficulty {
+  const urlCharacter = getCharacterFromUrl()
+  return urlCharacter ? characterToDifficulty[urlCharacter] : fallback
+}
+
+/** True when the page was opened with a valid ?character= parameter. */
+export function hasCharacterParam(): boolean {
+  return getCharacterFromUrl() !== null
 }
 
 export function useCharacterSelection(initialDifficulty: Difficulty = 'medium') {

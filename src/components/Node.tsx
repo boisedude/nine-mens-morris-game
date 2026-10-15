@@ -1,6 +1,6 @@
 /**
  * Nine Men's Morris Node Component
- * Represents a single position on the board with premium 3D carved effect
+ * Represents a single position on the board 
  */
 
 import { memo, useState } from 'react'
@@ -19,6 +19,8 @@ interface NodeProps {
   isInMill: boolean
   disabled: boolean
 }
+
+const SAGEBRUSH = '#b5ca9b'
 
 export const Node = memo(function Node({
   id,
@@ -57,124 +59,54 @@ export const Node = memo(function Node({
   const isClickable = !disabled && (piece !== null || isHighlighted || isRemovable)
 
   return (
+    <g transform={`translate(${position.x}, ${position.y})`}>
     <g
-      transform={`translate(${position.x}, ${position.y})`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onFocus={() => setIsFocused(true)}
+      onFocus={(e) => setIsFocused(e.currentTarget.matches(':focus-visible'))}
       onBlur={() => setIsFocused(false)}
       style={{
         cursor: isClickable ? 'pointer' : 'default',
         transition: 'transform 0.15s ease-out',
         transform: isHovered && isClickable ? 'scale(1.05)' : 'scale(1)',
       }}
+      className="outline-none"
       role="button"
       aria-label={nodeLabel}
       aria-pressed={isSelected}
       tabIndex={isClickable ? 0 : -1}
     >
-      {/* Focus ring indicator for keyboard navigation */}
+      {/* Invisible hit area so a node is a comfortable tap target */}
+      <circle r={21} fill="transparent" />
+
+      {/* Keyboard focus ring */}
       {isFocused && isClickable && (
-        <circle
-          r={NODE_RADIUS + 5}
-          fill="none"
-          stroke="#3b82f6"
-          strokeWidth={3}
-          className="focus-ring"
-          style={{
-            filter: 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))',
-          }}
-        />
+        <circle r={NODE_RADIUS + 7} fill="none" stroke={SAGEBRUSH} strokeWidth={1.5} strokeDasharray="3 3" />
       )}
 
-      {/* Outer glow for hover effect */}
-      {isHovered && isClickable && !isFocused && (
-        <circle
-          r={NODE_RADIUS + 4}
-          fill="none"
-          stroke="rgba(212, 165, 116, 0.6)"
-          strokeWidth={3}
-          style={{
-            filter: 'drop-shadow(0 0 6px rgba(212, 165, 116, 0.4))',
-          }}
-        />
-      )}
-
-      {/* Node shadow (carved depth) */}
+      {/* Empty node: a shallow disc cut into the wood */}
       <circle
-        r={NODE_RADIUS}
-        fill="none"
-        stroke="rgba(74, 53, 32, 0.4)"
-        strokeWidth={3}
-        transform="translate(1.5, 1.5)"
-      />
-
-      {/* Node highlight (carved depth) */}
-      <circle
-        r={NODE_RADIUS - 1}
-        fill="none"
-        stroke="rgba(245, 230, 211, 0.25)"
+        r={NODE_RADIUS - 4}
+        fill={piece ? 'transparent' : '#6f5233'}
+        stroke="#3d2a18"
         strokeWidth={1}
-        transform="translate(-0.5, -0.5)"
       />
 
-      {/* Main node circle - 3D carved look */}
-      <circle
-        r={NODE_RADIUS}
-        fill={piece ? 'transparent' : 'url(#nodeGradient)'}
-        stroke={isHighlighted ? '#22c55e' : '#5d3a1a'}
-        strokeWidth={isHighlighted ? 3 : 2.5}
-        className={`transition-all duration-200 ${
-          isHighlighted ? 'animate-valid-move-pulse' : ''
-        }`}
-        style={{
-          filter: isHighlighted
-            ? 'drop-shadow(0 0 8px rgba(34, 197, 94, 0.6))'
-            : 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2))',
-        }}
-      />
-
-      {/* Inner circle for 3D depth when empty */}
-      {!piece && (
-        <>
-          {/* Carved inner shadow */}
-          <circle
-            r={NODE_RADIUS - 3}
-            fill="url(#nodeInnerGradient)"
-            stroke="none"
-          />
-
-          {/* Center highlight dot */}
-          <circle
-            r={3}
-            fill="rgba(245, 230, 211, 0.4)"
-            cx={-2}
-            cy={-2}
-          />
-        </>
+      {/* Static ring: valid destination, selected piece, removable piece */}
+      {(isHighlighted || isSelected || isRemovable) && (
+        <circle
+          r={NODE_RADIUS + 3}
+          fill="none"
+          stroke={SAGEBRUSH}
+          strokeWidth={isSelected ? 3 : 2}
+        />
       )}
 
-      {/* Highlight indicator for valid moves */}
-      {isHighlighted && !piece && (
-        <>
-          {/* Glowing center for valid move */}
-          <circle
-            r={NODE_RADIUS * 0.55}
-            fill="#22c55e"
-            opacity={0.7}
-            className="animate-valid-move-pulse"
-            style={{
-              filter: 'drop-shadow(0 0 6px rgba(34, 197, 94, 0.8))',
-            }}
-          />
-          {/* Plus icon for colorblind accessibility */}
-          <g stroke="#fff" strokeWidth={2.5} strokeLinecap="round" opacity={0.95}>
-            <line x1={-6} y1={0} x2={6} y2={0} />
-            <line x1={0} y1={-6} x2={0} y2={6} />
-          </g>
-        </>
+      {/* Mill: thin ring around each piece in the last mill */}
+      {isInMill && piece && !isSelected && !isRemovable && (
+        <circle r={NODE_RADIUS + 3} fill="none" stroke={SAGEBRUSH} strokeWidth={1} />
       )}
 
       {/* Piece */}
@@ -197,20 +129,17 @@ export const Node = memo(function Node({
         </foreignObject>
       )}
 
-      {/* Node label with better visibility */}
+      {/* Node label */}
       <text
-        y={NODE_RADIUS + 15}
+        y={NODE_RADIUS + 12}
         textAnchor="middle"
-        fontSize="9"
-        fill="#5d3a1a"
-        fontWeight="600"
+        fontSize="8"
+        fill="rgba(245, 230, 211, 0.6)"
         className="select-none pointer-events-none"
-        style={{
-          textShadow: '0 1px 1px rgba(255, 255, 255, 0.5)',
-        }}
       >
         {id}
       </text>
+    </g>
     </g>
   )
 })

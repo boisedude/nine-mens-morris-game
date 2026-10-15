@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../shared/arcade.css";
 
 @theme {
   --color-background: hsl(var(--background));
@@ -25,92 +26,20 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  /* Premium board game animations */
-  --animate-piece-drop: piece-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  --animate-mill-glow: mill-glow 0.8s ease-in-out 3;
-  --animate-mill-celebration: mill-celebration 0.6s ease-out;
-}
-
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 30 70% 35%;
-    --primary-foreground: 0 0% 100%;
-    --primary-rgb: 139, 90, 43;
-    --secondary: 30 47% 96%;
-    --secondary-foreground: 30 50% 20%;
-    --muted: 30 47% 96%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 30 47% 96%;
-    --accent-foreground: 30 50% 20%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 30 70% 35%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 30 70% 45%;
-    --primary-foreground: 0 0% 100%;
-    --primary-rgb: 166, 109, 52;
-    --secondary: 30 20% 15%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 30 20% 15%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 30 20% 15%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 30 70% 55%;
-  }
+  --animate-piece-drop: piece-drop 0.3s ease-out;
 }
 
 @layer base {
   * {
     border-color: hsl(var(--border));
   }
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-  }
 }
 
-/* ========================================
-   PREMIUM BOARD GAME ANIMATIONS
-   ======================================== */
-
-/* Piece drop animation - simulates dropping onto the board */
+/* Piece placement: drops in from slightly above */
 @keyframes piece-drop {
   0% {
-    transform: scale(0.3) translateY(-30px);
+    transform: scale(0.6) translateY(-12px);
     opacity: 0;
-    filter: blur(2px);
-  }
-  50% {
-    transform: scale(1.15) translateY(0);
-    opacity: 1;
-    filter: blur(0);
-  }
-  70% {
-    transform: scale(0.95) translateY(2px);
-  }
-  85% {
-    transform: scale(1.03) translateY(-1px);
   }
   100% {
     transform: scale(1) translateY(0);
@@ -118,166 +47,8 @@
   }
 }
 
-/* Valid move pulse - subtle glow effect */
-@keyframes valid-move-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.9;
-  }
-}
-
-/* Mill glow animation - celebratory highlight */
-@keyframes mill-glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 0px #fbbf24);
-  }
-  50% {
-    filter: drop-shadow(0 0 12px #fbbf24) drop-shadow(0 0 20px #f59e0b);
-  }
-}
-
-/* Mill celebration - pieces in a mill bounce */
-@keyframes mill-celebration {
-  0% {
-    transform: scale(1);
-  }
-  25% {
-    transform: scale(1.15);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  75% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* Mill line flash - enhanced */
-@keyframes mill-flash {
-  0%, 100% {
-    stroke: #8b4513;
-    stroke-width: 4;
-    filter: drop-shadow(0 0 0px transparent);
-  }
-  25%, 75% {
-    stroke: #fbbf24;
-    stroke-width: 6;
-    filter: drop-shadow(0 0 8px #fbbf24);
-  }
-  50% {
-    stroke: #f59e0b;
-    stroke-width: 7;
-    filter: drop-shadow(0 0 12px #f59e0b);
-  }
-}
-
-/* Shimmer effect for premium feel (used inline in Connection.tsx) */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-/* Subtle float for selected pieces */
-@keyframes float-selected {
-  0%, 100% {
-    transform: translateY(0) scale(1.1);
-  }
-  50% {
-    transform: translateY(-3px) scale(1.12);
-  }
-}
-
-/* Ring pulse for removable pieces */
-@keyframes ring-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-  }
-}
-
 @layer utilities {
-  /* Animation classes used in components */
-  .animate-valid-move-pulse {
-    animation: valid-move-pulse 2s ease-in-out infinite;
-  }
-
-  .animate-mill-flash {
-    animation: mill-flash 0.5s ease-in-out 3;
-  }
-
   .animate-piece-drop {
-    animation: piece-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .animate-mill-glow {
-    animation: mill-glow 0.8s ease-in-out 3;
-  }
-
-  .animate-mill-celebration {
-    animation: mill-celebration 0.6s ease-out;
-  }
-
-  .animate-float-selected {
-    animation: float-selected 1.5s ease-in-out infinite;
-  }
-
-  .animate-ring-pulse {
-    animation: ring-pulse 1.2s ease-in-out infinite;
-  }
-
-  /* Premium board shadow */
-  .board-premium-shadow {
-    box-shadow:
-      0 10px 30px rgba(0, 0, 0, 0.3),
-      0 5px 15px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-}
-
-/* Reduced motion support - disable infinite animations for users who prefer reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .animate-piece-drop {
-    animation: none;
-  }
-
-  .animate-valid-move-pulse {
-    animation: none;
-    /* Keep visual indicator but without animation */
-    transform: scale(1.1);
-    opacity: 0.7;
-  }
-
-  .animate-mill-flash,
-  .animate-mill-glow,
-  .animate-mill-celebration {
-    animation: none;
-  }
-
-  .animate-pulse,
-  .animate-float-selected,
-  .animate-ring-pulse {
-    animation: none;
-  }
-
-  /* Disable all transitions and animations globally */
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: piece-drop 0.3s ease-out;
   }
 }

@@ -29,42 +29,25 @@ export const Piece = memo(function Piece({ player, isSelected, isRemovable, isIn
   // Get shared piece style
   const pieceStyle = getPieceStyle(player)
 
-  const selectedGlow = isSelected
-    ? player === 1
-      ? '0 0 0 4px rgba(250, 204, 21, 0.8), 0 0 20px rgba(250, 204, 21, 0.4)'
-      : '0 0 0 4px rgba(250, 204, 21, 0.8), 0 0 20px rgba(250, 204, 21, 0.5)'
-    : ''
+  const ring = isSelected
+    ? '0 0 0 3px #b5ca9b'
+    : isRemovable
+      ? '0 0 0 2px #b5ca9b'
+      : isInMill
+        ? '0 0 0 1px #b5ca9b'
+        : ''
 
-  const millGlow = isInMill && !isSelected
-    ? '0 0 0 3px rgba(251, 191, 36, 0.7), 0 0 15px rgba(251, 191, 36, 0.3)'
-    : ''
-
-  const removableGlow = isRemovable
-    ? '0 0 0 4px rgba(239, 68, 68, 0.8), 0 0 20px rgba(239, 68, 68, 0.4)'
-    : ''
-
-  const combinedBoxShadow = [
-    pieceStyle.boxShadow,
-    selectedGlow,
-    millGlow,
-    removableGlow,
-  ]
-    .filter(Boolean)
-    .join(', ')
+  const combinedBoxShadow = [pieceStyle.boxShadow, ring].filter(Boolean).join(', ')
 
   return (
     <div
       className={cn(
         // Base classes
-        'w-8 h-8 sm:w-10 sm:h-10 rounded-full relative',
+        'h-[30px] w-[30px] shrink-0 rounded-full relative',
         // Animation classes
         isNew && 'animate-piece-drop',
-        // Selected state with floating animation
-        isSelected && 'z-10 animate-float-selected',
-        // Removable state
-        isRemovable && 'cursor-pointer animate-ring-pulse',
-        // Mill celebration
-        isInMill && !isSelected && !isRemovable && 'animate-mill-celebration'
+        isSelected && 'z-10',
+        isRemovable && 'cursor-pointer'
       )}
       style={{
         ...pieceStyle,
@@ -129,13 +112,13 @@ export const Piece = memo(function Piece({ player, isSelected, isRemovable, isIn
           <div
             className="rounded-full p-1"
             style={{
-              background: 'rgba(239, 68, 68, 0.2)',
+              background: 'rgba(0, 0, 0, 0.25)',
             }}
           >
             <svg
               viewBox="0 0 24 24"
-              className="w-4 h-4 sm:w-5 sm:h-5"
-              stroke={player === 1 ? '#b91c1c' : '#fca5a5'}
+              className="h-3.5 w-3.5"
+              stroke={player === 1 ? '#3d2a18' : '#e6ebe8'}
               strokeWidth={3.5}
               strokeLinecap="round"
               fill="none"
@@ -152,18 +135,6 @@ export const Piece = memo(function Piece({ player, isSelected, isRemovable, isIn
         </div>
       )}
 
-      {/* Mill indicator star/sparkle */}
-      {isInMill && !isRemovable && (
-        <div
-          className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, #fbbf24 0%, #f59e0b 50%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'drop-shadow(0 0 3px #fbbf24)',
-            animation: 'mill-glow 1.5s ease-in-out infinite',
-          }}
-        />
-      )}
     </div>
   )
 })

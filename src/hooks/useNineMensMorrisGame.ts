@@ -10,7 +10,7 @@ import {
   makeMove,
   isValidMove,
 } from '@/lib/morrisRules'
-import { getAIMove } from '@/lib/aiStrategies'
+import { requestAIMove } from '@/lib/aiClient'
 import { TIMING } from '@/lib/constants'
 
 /**
@@ -51,6 +51,12 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
   const gameStateRef = useRef(gameState)
   // Track if we should save undo state (for multi-step player moves like mill+remove)
   const pendingUndoSnapshotRef = useRef<GameStateSnapshot | null>(null)
+  // Bumped whenever an in-flight AI search becomes stale (new game, undo, difficulty change, unmount)
+  const aiGenerationRef = useRef(0)
+  const aiSearchingRef = useRef(false)
+  const invalidateAI = useCallback(() => {
+    aiGenerationRef.current++
+  }, [])
 
   // Keep gameStateRef in sync with gameState
   useEffect(() => {
@@ -60,6 +66,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      invalidateAI()
       if (aiMoveTimeoutRef.current) {
         clearTimeout(aiMoveTimeoutRef.current)
       }
@@ -67,7 +74,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
         clearTimeout(animationTimeoutRef.current)
       }
     }
-  }, [])
+  }, [invalidateAI])
 
   // Handle AI move when it's AI's turn (Player 2)
   useEffect(() => {
@@ -83,40 +90,58 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
       setIsAIThinking(true)
 
       aiMoveTimeoutRef.current = setTimeout(() => {
-        try {
-          // Use ref to get current game state to avoid stale closure
-          const currentGameState = gameStateRef.current
-          const aiMove = getAIMove(currentGameState, 2, currentGameState.difficulty)
+        // Use ref to get current game state to avoid stale closure
+        const currentGameState = gameStateRef.current
+        const generation = aiGenerationRef.current
+        aiSearchingRef.current = true
 
-          if (aiMove) {
-            setIsAnimating(true)
-
-            animationTimeoutRef.current = setTimeout(() => {
-              setGameState(prevState => {
-                try {
-                  return makeMove(prevState, aiMove)
-                } catch {
-                  return prevState
-                }
-              })
-              setIsAnimating(false)
-              setIsAIThinking(false)
-              animationTimeoutRef.current = null
-              aiMoveScheduledRef.current = false
-            }, TIMING.MOVE_ANIMATION_DELAY)
-          } else {
-            setIsAIThinking(false)
-            aiMoveScheduledRef.current = false
-          }
-        } catch {
+        const fail = () => {
           setIsAnimating(false)
           setIsAIThinking(false)
           aiMoveScheduledRef.current = false
         }
+
+        requestAIMove(currentGameState, 2, currentGameState.difficulty).then(
+          aiMove => {
+            if (generation !== aiGenerationRef.current) return
+            aiSearchingRef.current = false
+            if (aiMove) {
+              setIsAnimating(true)
+
+              animationTimeoutRef.current = setTimeout(() => {
+                setGameState(prevState => {
+                  try {
+                    return makeMove(prevState, aiMove)
+                  } catch {
+                    return prevState
+                  }
+                })
+                setIsAnimating(false)
+                setIsAIThinking(false)
+                animationTimeoutRef.current = null
+                aiMoveScheduledRef.current = false
+              }, TIMING.MOVE_ANIMATION_DELAY)
+            } else {
+              setIsAIThinking(false)
+              aiMoveScheduledRef.current = false
+            }
+          },
+          () => {
+            if (generation !== aiGenerationRef.current) return
+            aiSearchingRef.current = false
+            fail()
+          }
+        )
       }, TIMING.AI_MOVE_DELAY)
     }
 
     return () => {
+      if (aiSearchingRef.current) {
+        // Inputs changed mid-search: drop the result and let the effect reschedule
+        invalidateAI()
+        aiSearchingRef.current = false
+        aiMoveScheduledRef.current = false
+      }
       if (aiMoveTimeoutRef.current) {
         clearTimeout(aiMoveTimeoutRef.current)
         aiMoveTimeoutRef.current = null
@@ -131,6 +156,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
     gameState.difficulty,
     gameState.mustRemovePiece,
     isAnimating,
+    invalidateAI,
   ])
 
   /**
@@ -153,25 +179,20 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
           setHighlightedNodes([])
 
           animationTimeoutRef.current = setTimeout(() => {
-            setGameState(prevState => {
-              try {
-                // Use the pending snapshot that was saved before the placement/movement
-                const snapshot = pendingUndoSnapshotRef.current
-                pendingUndoSnapshotRef.current = null
-                const newState = makeMove(prevState, move)
-                // Add snapshot to undo history if we have one
-                if (snapshot) {
-                  return {
-                    ...newState,
-                    undoHistory: [...prevState.undoHistory, snapshot],
-                  }
-                }
-                return newState
-              } catch {
-                pendingUndoSnapshotRef.current = null
-                return prevState
-              }
-            })
+            // Refs are read and cleared here, not inside a state updater (StrictMode double-invokes those)
+            const snapshot = pendingUndoSnapshotRef.current
+            pendingUndoSnapshotRef.current = null
+            const prevState = gameStateRef.current
+            try {
+              const newState = makeMove(prevState, move)
+              setGameState(
+                snapshot
+                  ? { ...newState, undoHistory: [...prevState.undoHistory, snapshot] }
+                  : newState
+              )
+            } catch {
+              // Illegal move: keep the current state
+            }
             setIsAnimating(false)
             animationTimeoutRef.current = null
           }, TIMING.MOVE_ANIMATION_DELAY)
@@ -192,23 +213,19 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
             const snapshot = createSnapshot(gameState)
 
             animationTimeoutRef.current = setTimeout(() => {
-              setGameState(prevState => {
-                try {
-                  const newState = makeMove(prevState, move)
-                  // If this move requires piece removal (mill formed), save snapshot for later
-                  if (newState.mustRemovePiece) {
-                    pendingUndoSnapshotRef.current = snapshot
-                    return newState
-                  }
-                  // Otherwise, add to undo history now
-                  return {
-                    ...newState,
-                    undoHistory: [...prevState.undoHistory, snapshot],
-                  }
-                } catch {
-                  return prevState
+              const prevState = gameStateRef.current
+              try {
+                const newState = makeMove(prevState, move)
+                if (newState.mustRemovePiece) {
+                  // Mill formed: keep the snapshot until the removal completes
+                  pendingUndoSnapshotRef.current = snapshot
+                  setGameState(newState)
+                } else {
+                  setGameState({ ...newState, undoHistory: [...prevState.undoHistory, snapshot] })
                 }
-              })
+              } catch {
+                // Illegal move: keep the current state
+              }
               setIsAnimating(false)
               animationTimeoutRef.current = null
             }, TIMING.MOVE_ANIMATION_DELAY)
@@ -243,23 +260,19 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
           const snapshot = createSnapshot(gameState)
 
           animationTimeoutRef.current = setTimeout(() => {
-            setGameState(prevState => {
-              try {
-                const newState = makeMove(prevState, move)
-                // If this move requires piece removal (mill formed), save snapshot for later
-                if (newState.mustRemovePiece) {
-                  pendingUndoSnapshotRef.current = snapshot
-                  return newState
-                }
-                // Otherwise, add to undo history now
-                return {
-                  ...newState,
-                  undoHistory: [...prevState.undoHistory, snapshot],
-                }
-              } catch {
-                return prevState
+            const prevState = gameStateRef.current
+            try {
+              const newState = makeMove(prevState, move)
+              if (newState.mustRemovePiece) {
+                // Mill formed: keep the snapshot until the removal completes
+                pendingUndoSnapshotRef.current = snapshot
+                setGameState(newState)
+              } else {
+                setGameState({ ...newState, undoHistory: [...prevState.undoHistory, snapshot] })
               }
-            })
+            } catch {
+              // Illegal move: keep the current state
+            }
             setIsAnimating(false)
             animationTimeoutRef.current = null
           }, TIMING.MOVE_ANIMATION_DELAY)
@@ -291,6 +304,8 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
       animationTimeoutRef.current = null
     }
     aiMoveScheduledRef.current = false
+    aiSearchingRef.current = false
+    aiGenerationRef.current++
     pendingUndoSnapshotRef.current = null
 
     setGameState(createInitialGameState('pvc', difficulty ?? gameState.difficulty))
@@ -394,6 +409,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
     setSelectedNode(null)
     setHighlightedNodes([])
     pendingUndoSnapshotRef.current = null
+    aiGenerationRef.current++
 
     setGameState(prevState => {
       const history = prevState.undoHistory

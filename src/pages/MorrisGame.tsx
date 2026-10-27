@@ -25,7 +25,6 @@ import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useGameAudio } from '@/hooks/useGameAudio'
 import { useCharacterSelection, getDifficultyFromUrl } from '@/hooks/useCharacterSelection'
 import { useBentleyStats } from '@/hooks/useBentleyStats'
-import { recordPlayerBeatBentley, recordBentleyBeatPlayer } from '@shared/arcadeRecord'
 import { ArrowLeftIcon, VolumeIcon, VolumeOffIcon, HelpIcon } from '@shared/icons'
 import { countMills } from '@/lib/morrisRules'
 import { TIMING } from '@/lib/constants'
@@ -68,7 +67,6 @@ export function MorrisGame() {
   // Use refs for tracking previous state to avoid cascading renders
   const prevStatusRef = useRef<GameStatus>(gameState.status)
   const prevMustRemoveRef = useRef(gameState.mustRemovePiece)
-  const arcadeRecordedRef = useRef(false)
   const prevMoveCountRef = useRef(gameState.moveHistory.length)
 
   // Sound effects for moves
@@ -117,10 +115,6 @@ export function MorrisGame() {
 
           if (gameState.difficulty === 'hard') {
             recordBentleyWin(playerMills, isPerfect, moveCount)
-            if (!arcadeRecordedRef.current) {
-              arcadeRecordedRef.current = true
-              void recordPlayerBeatBentley()
-            }
           }
         } else if (gameState.winner === 2) {
           // AI wins
@@ -130,10 +124,6 @@ export function MorrisGame() {
           if (gameState.difficulty === 'hard') {
             const wasClose = gameState.player1PiecesOnBoard >= 3
             recordBentleyLoss(playerMills, wasClose)
-            if (!arcadeRecordedRef.current) {
-              arcadeRecordedRef.current = true
-              void recordBentleyBeatPlayer()
-            }
           }
         }
       } else if (gameState.status === 'draw') {
@@ -171,7 +161,6 @@ export function MorrisGame() {
 
   const handleNewGame = useCallback(() => {
     setShowVictoryDialog(false)
-    arcadeRecordedRef.current = false
     startNewGame()
   }, [startNewGame])
 
@@ -181,7 +170,6 @@ export function MorrisGame() {
   const switchOpponent = useCallback(
     (difficulty: Difficulty) => {
       setShowVictoryDialog(false)
-      arcadeRecordedRef.current = false
       changeCharacter(difficulty)
       startNewGame(difficulty)
     },

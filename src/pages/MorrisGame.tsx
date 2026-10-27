@@ -11,6 +11,15 @@ import { LeaderboardDialog } from '@/components/LeaderboardDialog'
 import { Tutorial } from '@/components/Tutorial'
 import { OpponentChip } from '@/components/OpponentChip'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { getCharacterById } from '@shared/characters'
 import { useNineMensMorrisGame } from '@/hooks/useNineMensMorrisGame'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useGameAudio } from '@/hooks/useGameAudio'
@@ -20,10 +29,12 @@ import { recordPlayerBeatBentley, recordBentleyBeatPlayer } from '@shared/arcade
 import { ArrowLeftIcon, VolumeIcon, VolumeOffIcon, HelpIcon } from '@shared/icons'
 import { countMills } from '@/lib/morrisRules'
 import { TIMING } from '@/lib/constants'
-import type { GameStatus } from '@/types/morris.types'
+import type { Difficulty, GameStatus } from '@/types/morris.types'
 
 // Resolved once: ?character= is the single source of truth for the starting opponent
 const initialDifficulty = getDifficultyFromUrl('medium')
+
+const DIFFICULTY_TO_ID = { easy: 'bella', medium: 'coop', hard: 'bentley' } as const
 
 export function MorrisGame() {
   const {
@@ -32,7 +43,6 @@ export function MorrisGame() {
     isAIThinking,
     handleNodeClick,
     startNewGame,
-    changeDifficulty,
     isHighlighted,
     isNodeSelected,
     isRemovable,
@@ -165,12 +175,29 @@ export function MorrisGame() {
     startNewGame()
   }, [startNewGame])
 
-  const handleDifficultyChange = useCallback(
-    (difficulty: 'easy' | 'medium' | 'hard') => {
-      changeDifficulty(difficulty)
+  // Changing opponent always starts a fresh game, so a game cannot be
+  // finished against a different opponent than it began with.
+  const [pendingDifficulty, setPendingDifficulty] = useState<Difficulty | null>(null)
+  const switchOpponent = useCallback(
+    (difficulty: Difficulty) => {
+      setShowVictoryDialog(false)
+      arcadeRecordedRef.current = false
       changeCharacter(difficulty)
+      startNewGame(difficulty)
     },
-    [changeDifficulty, changeCharacter]
+    [changeCharacter, startNewGame]
+  )
+  const gameInProgress = gameState.status === 'playing' && gameState.moveHistory.length > 0
+  const handleDifficultyChange = useCallback(
+    (difficulty: Difficulty) => {
+      if (difficulty === gameState.difficulty) return
+      if (gameInProgress) {
+        setPendingDifficulty(difficulty)
+        return
+      }
+      switchOpponent(difficulty)
+    },
+    [gameState.difficulty, gameInProgress, switchOpponent]
   )
 
   // Keyboard shortcut for Undo (U key)
@@ -301,6 +328,36 @@ export function MorrisGame() {
           disabled={isAnimating || isAIThinking}
         />
       </main>
+
+      {pendingDifficulty && (
+        <Dialog open onOpenChange={(o) => !o && setPendingDifficulty(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                Play {getCharacterById(DIFFICULTY_TO_ID[pendingDifficulty]).name} instead?
+              </DialogTitle>
+              <DialogDescription>
+                This ends the current game and starts a new one. It will not count toward any record.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button
+                className="h-11"
+                onClick={() => {
+                  const d = pendingDifficulty
+                  setPendingDifficulty(null)
+                  switchOpponent(d)
+                }}
+              >
+                New game
+              </Button>
+              <Button className="h-11" variant="ghost" onClick={() => setPendingDifficulty(null)}>
+                Keep playing
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {showVictoryDialog && (
         <VictoryDialog

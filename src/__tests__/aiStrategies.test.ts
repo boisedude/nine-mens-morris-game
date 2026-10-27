@@ -506,17 +506,14 @@ describe('aiStrategies', () => {
       expect(moves.size).toBeGreaterThan(3)
     })
 
-    it('hard AI should be deterministic for same position', () => {
+    it('hard AI replies are always legal and may vary among equally good moves', () => {
       const state = createInitialGameState()
       state.currentPlayer = 2
 
-      const move1 = getAIMove(state, 2, 'hard')
-      const move2 = getAIMove(state, 2, 'hard')
-      const move3 = getAIMove(state, 2, 'hard')
-
-      // Hard AI should make the same move for same position
-      expect(move1!.to).toBe(move2!.to)
-      expect(move2!.to).toBe(move3!.to)
+      const legal = new Set(getAllValidMoves(state).map(m => m.to))
+      for (let i = 0; i < 3; i++) {
+        expect(legal.has(getAIMove(state, 2, 'hard')!.to)).toBe(true)
+      }
     })
 
     it('all difficulties should return valid moves', () => {

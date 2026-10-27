@@ -240,6 +240,28 @@ export function countPiecesOnBoard(board: Board): { player1: number; player2: nu
   return { player1, player2 }
 }
 
+/**
+ * Identifies a position for repetition detection: every node's occupant plus
+ * the side to move. Only meaningful once all pieces are placed.
+ */
+export function positionKey(board: Board, toMove: Player): string {
+  let key = String(toMove)
+  board.forEach(p => {
+    key += p === null ? '.' : p
+  })
+  return key
+}
+
+/**
+ * Positions seen since the last capture, after the move `newState` just completed.
+ * A capture cannot be undone, so earlier positions can never recur.
+ */
+function nextPositionKeys(prev: GameState, newState: GameState, captured: boolean): string[] {
+  if (newState.player1PiecesInHand > 0 || newState.player2PiecesInHand > 0) return []
+  const keys = captured ? [] : (prev.positionKeys ?? [])
+  return [...keys, positionKey(newState.board, newState.currentPlayer)]
+}
+
 // Maximum moves before declaring a draw (to prevent infinite games)
 const MAX_MOVES_BEFORE_DRAW = 100
 
@@ -261,7 +283,8 @@ export function checkGameOver(state: GameState): {
     ? state.player1PiecesOnBoard
     : state.player2PiecesOnBoard
 
-  if (currentPieces < MIN_PIECES_TO_LOSE) {
+  // A player reduced to two pieces can never form a mill again, so they lose
+  if (currentPieces <= MIN_PIECES_TO_LOSE) {
     return { isOver: true, winner: state.currentPlayer === 1 ? 2 : 1, isDraw: false }
   }
 
@@ -269,6 +292,14 @@ export function checkGameOver(state: GameState): {
   const validMoves = getAllValidMoves(state)
   if (validMoves.length === 0 && !state.mustRemovePiece) {
     return { isOver: true, winner: state.currentPlayer === 1 ? 2 : 1, isDraw: false }
+  }
+
+  // Threefold repetition of the same position with the same side to move is a draw
+  if (state.positionKeys && state.positionKeys.length >= 3) {
+    const key = positionKey(state.board, state.currentPlayer)
+    if (state.positionKeys.filter(k => k === key).length >= 3) {
+      return { isOver: true, winner: null, isDraw: true }
+    }
   }
 
   // Check for draw by move limit (movement phase only, no progress)
@@ -347,6 +378,7 @@ export function makeMove(
       lastFormedMill: undefined,
       moveHistory: updatedHistory,
     }
+    newState.positionKeys = nextPositionKeys(state, newState, true)
 
     // Check for game over
     const gameOver = checkGameOver(newState)
@@ -437,6 +469,7 @@ export function makeMove(
     mustRemovePiece: false,
     lastFormedMill: undefined,
   }
+  newState.positionKeys = nextPositionKeys(state, newState, false)
 
   // Check for game over
   const gameOver = checkGameOver(newState)

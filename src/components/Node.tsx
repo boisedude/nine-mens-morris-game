@@ -78,8 +78,8 @@ export const Node = memo(function Node({
       aria-pressed={isSelected}
       tabIndex={isClickable ? 0 : -1}
     >
-      {/* Invisible hit area so a node is a comfortable tap target */}
-      <circle r={21} fill="transparent" />
+      {/* Invisible hit area so a node is a comfortable tap target (about 44px on a phone) */}
+      <circle r={25} fill="transparent" />
 
       {/* Keyboard focus ring */}
       {isFocused && isClickable && (

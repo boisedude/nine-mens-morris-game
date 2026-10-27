@@ -32,6 +32,7 @@ function createSnapshot(state: GameState): GameStateSnapshot {
     validMoves: [...state.validMoves],
     mustRemovePiece: state.mustRemovePiece,
     lastFormedMill: state.lastFormedMill,
+    positionKeys: state.positionKeys,
   }
 }
 
@@ -279,7 +280,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
   /**
    * Starts a new game
    */
-  const startNewGame = useCallback(() => {
+  const startNewGame = useCallback((difficulty?: Difficulty) => {
     // Clear any pending AI moves
     if (aiMoveTimeoutRef.current) {
       clearTimeout(aiMoveTimeoutRef.current)
@@ -292,7 +293,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
     aiMoveScheduledRef.current = false
     pendingUndoSnapshotRef.current = null
 
-    setGameState(createInitialGameState('pvc', gameState.difficulty))
+    setGameState(createInitialGameState('pvc', difficulty ?? gameState.difficulty))
     setSelectedNode(null)
     setHighlightedNodes([])
     setIsAnimating(false)
@@ -418,6 +419,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
           validMoves: [...snapshot.validMoves],
           mustRemovePiece: snapshot.mustRemovePiece,
           lastFormedMill: snapshot.lastFormedMill,
+          positionKeys: snapshot.positionKeys,
           undoHistory: history.slice(0, -1),
         }
       } else {
@@ -439,6 +441,7 @@ export function useNineMensMorrisGame(initialDifficulty: Difficulty = 'medium') 
           validMoves: [...snapshot.validMoves],
           mustRemovePiece: snapshot.mustRemovePiece,
           lastFormedMill: snapshot.lastFormedMill,
+          positionKeys: snapshot.positionKeys,
           undoHistory: history.slice(0, -1),
         }
       }

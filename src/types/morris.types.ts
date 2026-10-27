@@ -80,6 +80,7 @@ export interface GameStateSnapshot {
   validMoves: ValidMove[]
   mustRemovePiece: boolean
   lastFormedMill?: MillPattern
+  positionKeys?: string[]
 }
 
 // Complete game state
@@ -106,6 +107,9 @@ export interface GameState {
   // Mill detection
   mustRemovePiece: boolean // True if current player just formed a mill
   lastFormedMill?: MillPattern // For highlighting
+
+  // Positions reached since the last capture (post-placement), for threefold repetition
+  positionKeys?: string[]
 
   // UI state
   selectedNode?: NodeId

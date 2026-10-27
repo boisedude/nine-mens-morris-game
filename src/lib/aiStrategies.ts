@@ -24,6 +24,26 @@ const AI_DEPTH = {
   hard: 5,
 } as const
 
+// Wall-clock budget for one search. Iterative deepening keeps the result of the
+// last completed depth, so slow devices get a shallower search, never a freeze.
+const TIME_BUDGET_MS = { easy: 0, medium: 600, hard: 1200 } as const
+
+// Root moves scoring within this many points of the best are treated as equal and
+// picked at random, so the same position does not always get the same reply.
+// Zero keeps it strictly as strong as before: only exact ties are shuffled
+// (the board's mirror and rotation symmetries make those common).
+const NEAR_EQUAL_MARGIN = 0
+
+class SearchTimeout extends Error {}
+let searchDeadline = Infinity
+let searchNodes = 0
+
+function checkTime(): void {
+  if ((++searchNodes & 127) === 0 && Date.now() > searchDeadline) {
+    throw new SearchTimeout()
+  }
+}
+
 // Scoring constants
 const SCORE = {
   WIN: 100000,
@@ -49,11 +69,14 @@ const STRATEGIC_POSITIONS = new Set(['d7', 'd6', 'd5', 'd3', 'd2', 'd1', 'a4', '
 /**
  * Evaluates the board position for a player
  */
-function evaluateBoard(state: GameState, player: Player): number {
+function evaluateBoard(
+  state: GameState,
+  player: Player,
+  gameOver: ReturnType<typeof checkGameOver> = checkGameOver(state)
+): number {
   const opponent: Player = player === 1 ? 2 : 1
 
   // Check for game over
-  const gameOver = checkGameOver(state)
   if (gameOver.isOver) {
     if (gameOver.winner === player) return SCORE.WIN
     if (gameOver.winner === opponent) return SCORE.LOSS
@@ -163,16 +186,23 @@ function minimax(
   maximizingPlayer: boolean,
   player: Player
 ): { score: number; move: ValidMove | null } {
-  const gameOver = checkGameOver(state)
-
-  if (depth === 0 || gameOver.isOver) {
-    return { score: evaluateBoard(state, player), move: null }
+  checkTime()
+  // Every searched state comes from makeMove, which has already settled the
+  // game status and the legal moves, so read them instead of recomputing.
+  const gameOver = {
+    isOver: state.status !== 'playing',
+    winner: state.winner,
+    isDraw: state.status === 'draw',
   }
 
-  const validMoves = getAllValidMoves(state)
+  if (depth === 0 || gameOver.isOver) {
+    return { score: evaluateBoard(state, player, gameOver), move: null }
+  }
+
+  const validMoves = state.validMoves
 
   if (validMoves.length === 0) {
-    return { score: evaluateBoard(state, player), move: null }
+    return { score: evaluateBoard(state, player, gameOver), move: null }
   }
 
   let bestMove: ValidMove | null = null
@@ -289,6 +319,7 @@ export function getAIMove(state: GameState, player: Player, difficulty: Difficul
     // Score each removable piece
     let bestRemove = removable[0]
     let bestScore = -Infinity
+    let tied = 0
 
     for (const nodeId of removable) {
       let score = 0
@@ -319,6 +350,9 @@ export function getAIMove(state: GameState, player: Player, difficulty: Difficul
       if (score > bestScore) {
         bestScore = score
         bestRemove = nodeId
+        tied = 1
+      } else if (score === bestScore && Math.random() < 1 / ++tied) {
+        bestRemove = nodeId
       }
     }
 
@@ -342,9 +376,70 @@ export function getAIMove(state: GameState, player: Player, difficulty: Difficul
     return bestMove
   }
 
-  // Use minimax for medium and hard
-  const depth = AI_DEPTH[difficulty]
-  const { move } = minimax(state, depth, -Infinity, Infinity, true, player)
+  // Medium and hard: iterative deepening minimax within a time budget
+  const move = searchBestMove(state, validMoves, player, AI_DEPTH[difficulty], TIME_BUDGET_MS[difficulty])
+  return move ?? validMoves[Math.floor(Math.random() * validMoves.length)]
+}
 
-  return move || validMoves[Math.floor(Math.random() * validMoves.length)]
+interface ScoredMove {
+  move: ValidMove
+  score: number
+}
+
+/**
+ * Scores the root moves at one depth. Moves that cannot come within
+ * NEAR_EQUAL_MARGIN of the best so far are cut off early, so the survivors'
+ * scores are exact and can be compared fairly.
+ */
+function scoreRootMoves(
+  state: GameState,
+  moves: ValidMove[],
+  depth: number,
+  player: Player
+): ScoredMove[] {
+  const scored: ScoredMove[] = []
+  let best = -Infinity
+  for (const move of moves) {
+    const newState = makeMove(state, move)
+    const stillMaximizing = newState.currentPlayer === player || newState.mustRemovePiece
+    const alpha = best === -Infinity ? -Infinity : best - NEAR_EQUAL_MARGIN - 1
+    const { score } = minimax(newState, depth - 1, alpha, Infinity, stillMaximizing, player)
+    scored.push({ move, score })
+    if (score > best) best = score
+  }
+  return scored
+}
+
+function searchBestMove(
+  state: GameState,
+  validMoves: ValidMove[],
+  player: Player,
+  maxDepth: number,
+  budgetMs: number
+): ValidMove | null {
+  const deadline = Date.now() + budgetMs
+  searchNodes = 0
+  let ordered = validMoves
+  let result: ValidMove | null = null
+
+  try {
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      // Depth 1 always completes, so there is always a legal answer to fall back on
+      searchDeadline = depth === 1 ? Infinity : deadline
+      const scored = scoreRootMoves(state, ordered, depth, player)
+      const best = Math.max(...scored.map(s => s.score))
+      // A forced win or loss is decided; do not blur it with the margin
+      const margin = Math.abs(best) >= SCORE.WIN / 2 ? 0 : NEAR_EQUAL_MARGIN
+      const candidates = scored.filter(s => s.score >= best - margin)
+      result = candidates[Math.floor(Math.random() * candidates.length)].move
+      if (best >= SCORE.WIN / 2) break
+      // Search the strongest moves first next time so cutoffs come sooner
+      ordered = [...scored].sort((a, b) => b.score - a.score).map(s => s.move)
+    }
+  } catch (e) {
+    if (!(e instanceof SearchTimeout)) throw e
+  } finally {
+    searchDeadline = Infinity
+  }
+  return result
 }

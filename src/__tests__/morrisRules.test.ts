@@ -644,7 +644,7 @@ describe('morrisRules', () => {
       const state = createInitialGameState()
       state.player1PiecesInHand = 0
       state.player2PiecesInHand = 0
-      state.player1PiecesOnBoard = 1 // Less than MIN_PIECES_TO_LOSE (2)
+      state.player1PiecesOnBoard = 1 // At or below MIN_PIECES_TO_LOSE (2)
 
       const result = checkGameOver(state)
 
@@ -972,8 +972,7 @@ describe('morrisRules', () => {
 
     describe('game over detection', () => {
       it('should detect game over when opponent has fewer than MIN_PIECES_TO_LOSE pieces', () => {
-        // MIN_PIECES_TO_LOSE is 2, so game is over when currentPieces < 2
-        // This means having only 0 or 1 piece triggers game over
+        // A player reduced to MIN_PIECES_TO_LOSE (2) pieces loses
 
         const state = createInitialGameState()
         state.mustRemovePiece = true
@@ -999,14 +998,13 @@ describe('morrisRules', () => {
         const move: ValidMove = { from: null, to: 'a7' }
         const newState = makeMove(state, move)
 
-        // After removal: player 2 has 1 piece (< MIN_PIECES_TO_LOSE)
+        // After removal: player 2 has 1 piece
         expect(newState.player2PiecesOnBoard).toBe(1)
         expect(newState.status).toBe('won')
         expect(newState.winner).toBe(1)
       })
 
-      it('should not trigger game over when player has exactly MIN_PIECES_TO_LOSE pieces', () => {
-        // MIN_PIECES_TO_LOSE is 2, player having exactly 2 pieces should NOT end game
+      it('ends the game when a capture leaves the opponent with exactly 2 pieces', () => {
         const state = createInitialGameState()
         state.mustRemovePiece = true
         state.currentPlayer = 1
@@ -1014,27 +1012,78 @@ describe('morrisRules', () => {
         state.player2PiecesInHand = 0
         state.player1PiecesOnBoard = 5
         state.player2PiecesOnBoard = 3
-
-        // Add player 1 pieces
-        state.board.set('a4', 1)
-        state.board.set('b4', 1)
-        state.board.set('c4', 1)
-        state.board.set('d5', 1)
-        state.board.set('e5', 1)
-
-        // Add player 2 pieces (3, will go to 2 after removal)
-        state.board.set('a7', 2)
-        state.board.set('d7', 2)
-        state.board.set('g7', 2)
-
+        ;['a4', 'b4', 'c4', 'd5', 'e5'].forEach(n => state.board.set(n, 1))
+        ;['a7', 'd7', 'g7'].forEach(n => state.board.set(n, 2))
         state.validMoves = [{ from: null, to: 'a7' }]
 
-        const move: ValidMove = { from: null, to: 'a7' }
-        const newState = makeMove(state, move)
+        const newState = makeMove(state, { from: null, to: 'a7' })
 
-        // After removal: player 2 has 2 pieces (= MIN_PIECES_TO_LOSE, not <)
         expect(newState.player2PiecesOnBoard).toBe(2)
-        expect(newState.status).toBe('playing') // Game continues
+        expect(newState.status).toBe('won')
+        expect(newState.winner).toBe(1)
+      })
+
+      it('keeps the game going at 3 pieces (flying phase)', () => {
+        const state = createInitialGameState()
+        state.mustRemovePiece = true
+        state.currentPlayer = 1
+        state.player1PiecesInHand = 0
+        state.player2PiecesInHand = 0
+        state.player1PiecesOnBoard = 5
+        state.player2PiecesOnBoard = 4
+        ;['a4', 'b4', 'c4', 'd5', 'e5'].forEach(n => state.board.set(n, 1))
+        ;['a7', 'd7', 'g7', 'g1'].forEach(n => state.board.set(n, 2))
+        state.validMoves = [{ from: null, to: 'a7' }]
+
+        const newState = makeMove(state, { from: null, to: 'a7' })
+
+        expect(newState.status).toBe('playing')
+        expect(newState.phase).toBe('flying')
+      })
+    })
+
+    describe('threefold repetition', () => {
+      function shuffleState() {
+        const state = createInitialGameState()
+        state.player1PiecesInHand = 0
+        state.player2PiecesInHand = 0
+        state.player1PiecesOnBoard = 4
+        state.player2PiecesOnBoard = 4
+        ;['a1', 'g1', 'a7', 'g7'].forEach(n => state.board.set(n, 1))
+        ;['b2', 'b6', 'f2', 'f6'].forEach(n => state.board.set(n, 2))
+        state.phase = 'movement'
+        state.validMoves = getAllValidMoves(state)
+        return state
+      }
+
+      it('declares a draw when a position occurs three times', () => {
+        let state = shuffleState()
+        const cycle: ValidMove[] = [
+          { from: 'a1', to: 'd1' },
+          { from: 'b2', to: 'd2' },
+          { from: 'd1', to: 'a1' },
+          { from: 'd2', to: 'b2' },
+        ]
+        let plies = 0
+        while (state.status === 'playing' && plies < 40) {
+          state = makeMove(state, cycle[plies % 4])
+          plies++
+        }
+        expect(state.status).toBe('draw')
+        expect(state.winner).toBeNull()
+        expect(plies).toBe(9) // the position after ply 1 recurs at plies 5 and 9
+      })
+
+      it('does not call a draw after only two occurrences', () => {
+        let state = shuffleState()
+        const cycle: ValidMove[] = [
+          { from: 'a1', to: 'd1' },
+          { from: 'b2', to: 'd2' },
+          { from: 'd1', to: 'a1' },
+          { from: 'd2', to: 'b2' },
+        ]
+        for (let i = 0; i < 8; i++) state = makeMove(state, cycle[i % 4])
+        expect(state.status).toBe('playing')
       })
     })
 
